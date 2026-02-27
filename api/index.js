@@ -3,22 +3,27 @@ import bcrypt from "bcryptjs";
 import jwt from "jsonwebtoken";
 import fetch from "node-fetch";
 import dotenv from "dotenv";
+import path from "path";
+import { fileURLToPath } from "url";
 
 dotenv.config();
 
 const app = express();
 app.use(express.json());
-app.use(express.static("public"));
 
-const PORT = process.env.PORT || 3000;
+// Fix for __dirname in ES modules
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 
-// In-memory users (demo only)
+// Serve static frontend
+app.use(express.static(path.join(__dirname, "../public")));
+
+// In-memory storage (demo only)
 let users = [];
 
 /* =========================
    SPLUNK LOG FUNCTION
 ========================= */
-
 async function sendToSplunk(eventData) {
   try {
     const response = await fetch(process.env.SPLUNK_URL, {
@@ -42,9 +47,8 @@ async function sendToSplunk(eventData) {
 }
 
 /* =========================
-   REGISTER ROUTE
+   REGISTER
 ========================= */
-
 app.post("/api/register", async (req, res) => {
   const { email, password } = req.body;
 
@@ -52,25 +56,24 @@ app.post("/api/register", async (req, res) => {
     return res.status(400).json({ message: "Email & password required" });
   }
 
-  const existingUser = users.find(u => u.email === email);
-  if (existingUser) {
+  const existing = users.find(u => u.email === email);
+  if (existing) {
     return res.status(400).json({ message: "User already exists" });
   }
 
-  const hashedPassword = await bcrypt.hash(password, 10);
+  const hashed = await bcrypt.hash(password, 10);
 
   users.push({
     email,
-    password: hashedPassword
+    password: hashed
   });
 
   res.json({ message: "User registered successfully" });
 });
 
 /* =========================
-   LOGIN ROUTE
+   LOGIN
 ========================= */
-
 app.post("/api/login", async (req, res) => {
   const { email, password } = req.body;
 
@@ -83,8 +86,6 @@ app.post("/api/login", async (req, res) => {
   const match = await bcrypt.compare(password, user.password);
 
   if (!match) {
-
-    // 🔥 Send failed login event to Splunk
     await sendToSplunk({
       type: "failed_login",
       email,
@@ -102,9 +103,23 @@ app.post("/api/login", async (req, res) => {
 });
 
 /* =========================
-   START SERVER
+   ROOT ROUTE (IMPORTANT FOR VERCEL)
 ========================= */
-
-app.listen(PORT, () => {
-  console.log(`Server running on http://localhost:${PORT}`);
+app.get("/", (req, res) => {
+  res.sendFile(path.join(__dirname, "../public/index.html"));
 });
+
+/* =========================
+   LOCAL ONLY (NOT VERCEL)
+========================= */
+if (process.env.NODE_ENV !== "production") {
+  const PORT = process.env.PORT || 3000;
+  app.listen(PORT, () => {
+    console.log(`Local server running on http://localhost:${PORT}`);
+  });
+}
+
+/* =========================
+   EXPORT FOR VERCEL
+========================= */
+export default app;
