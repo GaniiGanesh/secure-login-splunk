@@ -1,0 +1,48 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Secure Login App</title>
+</head>
+<body>
+  <h2>Register</h2>
+  <input id="regEmail" placeholder="Email">
+  <input id="regPass" type="password" placeholder="Password">
+  <button onclick="register()">Register</button>
+
+  <h2>Login</h2>
+  <input id="logEmail" placeholder="Email">
+  <input id="logPass" type="password" placeholder="Password">
+  <button onclick="login()">Login</button>
+
+<script>
+async function register() {
+  const res = await fetch("/api/register", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      email: regEmail.value,
+      password: regPass.value
+    })
+  });
+
+  const data = await res.json();
+  alert(data.message);
+}
+
+async function login() {
+  const res = await fetch("/api/login", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      email: logEmail.value,
+      password: logPass.value
+    })
+  });
+
+  const data = await res.json();
+  alert(data.message);
+}
+</script>
+
+</body>
+</html>
